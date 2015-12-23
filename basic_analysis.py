@@ -19,9 +19,14 @@ class Splitter(object):
         return tokenized_sentences
 
 
-class POSTagger(object):
+class Tagger(object):
     def __init__(self):
         pass
+    def basic_tag(self,sentences):
+        """ """
+        tag = [[({'orig_string':word}, {},{}) for word in sent] for sent in sentences]
+        return tag
+
     def pos_tag(self, sentences):
         """
         input format: list of lists of words
@@ -38,6 +43,7 @@ class POSTagger(object):
         pos = [[({'orig_string':word}, {'pos_tag':postag},{}) for (word, postag) in sentence] for sentence in pos]
         #above format: word_dict, tag_dict,score_dict
         return pos
+
 
 class DictionaryTagger(object):
     def __init__(self, polarity_dic):
@@ -92,7 +98,7 @@ class DictionaryTagger(object):
                     new_token = (word_dict,token_dict,score_dict)
                     tag_sentence.append(new_token)
                     tagged = True
-                    print('new_token',new_token)
+                    # print('new_token',new_token)
                 else:
                     j = j - 1
             if not tagged:
@@ -100,38 +106,54 @@ class DictionaryTagger(object):
                 i += 1
         return tag_sentence
 
-def default_evaluator(literal,dictionary,**kwargs):
-    sent_score = dictionary[literal]
-    sent_tag = 'Positive' if sent_score>0 else 'Negative'
-    sent_tag = 'Neutral' if sent_score==0 else sent_tag
-    return (sent_tag,sent_score)
+class UtilMethods(object):
+    @staticmethod
+    def print_tagsent(tag_sentence):
+        ''' '''
+        for sent in tag_sentence:
+            orig_string = ''
+            for word in sent:
+                orig_string += word[0]['orig_string']+' '
+            print('\n'+orig_string)
+            print(sent)
 
-def gen_pol_dict_frm_twofiles(pos_path,neg_path,separator):
-    neg = pd.read_csv(neg_path,sep = separator,encoding='ISO-8859-1')
-    pos = pd.read_csv(pos_path,sep=separator,encoding='ISO-8859-1')
-    word_scores = pd.concat([pos,neg])
-    tmp = word_scores.set_index('word').to_dict()
-    pol_dict = tmp['polarity']
-    return pol_dict
+    @staticmethod
+    def default_evaluator(literal,dictionary,**kwargs):
+        sent_score = dictionary[literal]
+        sent_tag = 'Positive' if sent_score>0 else 'Negative'
+        sent_tag = 'Neutral' if sent_score==0 else sent_tag
+        return (sent_tag,sent_score)
 
-def gen_rej_dict():
-    ''' rejection dict from phrases_lists.py file'''
-    from phrases_lists import stop_contact_phrases
-    out_dict = {}
-    for phr in stop_contact_phrases:
-        out_dict[phr] = -99
-    return out_dict
+    @staticmethod
+    def gen_pol_dict_frm_twofiles(pos_path,neg_path,separator):
+        neg = pd.read_csv(neg_path,sep = separator,encoding='ISO-8859-1')
+        pos = pd.read_csv(pos_path,sep=separator,encoding='ISO-8859-1')
+        word_scores = pd.concat([pos,neg])
+        tmp = word_scores.set_index('word').to_dict()
+        pol_dict = tmp['polarity']
+        return pol_dict
 
-def evaluator_rej(literal,dictionary,**kwargs):
-    sent_tag = 'Very bad reply'
-    sent_score = None
-    return (sent_tag,sent_score)
+    @staticmethod
+    def gen_rej_dict():
+        ''' rejection dict from phrases_lists.py file'''
+        from phrases_lists import stop_contact_phrases
+        out_dict = {}
+        for phr in stop_contact_phrases:
+            out_dict[phr] = -99
+        return out_dict
 
-def analyze_dict_rej(tagged_dict,tag):
-    reject = 0
-    for sent in tagged_dict:
-        for word in sent:
-            if tag in word[1]:
-                reject = 1
-                break
-    return reject
+    @staticmethod
+    def evaluator_rej(literal,dictionary,**kwargs):
+        sent_tag = 'Very bad reply'
+        sent_score = None
+        return (sent_tag,sent_score)
+
+    @staticmethod
+    def analyze_dict_rej(tagged_dict,tag):
+        reject = 0
+        for sent in tagged_dict:
+            for word in sent:
+                if tag in word[1]:
+                    reject = 1
+                    break
+        return reject
