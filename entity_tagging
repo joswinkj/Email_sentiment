@@ -1,0 +1,36 @@
+timex module downloaded (in nltk.contrib git location). 
+
+timex.return_tag('Can you call me next week?')
+['next week']
+timex.return_tag('Can you call me tomorrow evening?')
+['tomorrow']
+timex.return_tag('Can you call me saturday evening')
+['saturday']
+timex.return_tag('Can you call me day after tomorrow')
+['tomorrow']
+timex.return_tag('Can you call me on next saturday 18th at 1.30 pm?')
+['next saturday', 'saturday']
+
+
+http://www.meaningcloud.com/demo/#
+Tried demo : Able to identify person. Also able to identify days, dates etc.
+
+https://www.lexalytics.com/demo :
+Tried demo : identified 'call tomorrow' . could not identify person
+
+http://storymapperdemo.linguasys.com/UI/Pages/Home.html : not good results
+
+stanford entity tagger : pretty good for tagging person, organization
+
+##simple function to extract entities
+def extract_entities(text):
+    entities = []
+    for sentence in sent_tokenize(text):
+        chunks = ne_chunk(pos_tag(word_tokenize(sentence)))
+        entities.extend([chunk for chunk in chunks if hasattr(chunk, 'node')])
+    return entities
+Not giving good results
+
+http://alumni.media.mit.edu/~hugo/montylingua/ -- need to check this
+
+https://www.quora.com/Whats-the-best-way-to-extract-phrases-from-a-corpus-of-text-using-Python -- useful link
