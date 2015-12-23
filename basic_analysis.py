@@ -1,8 +1,11 @@
 #from http://fjavieralba.com/basic-sentiment-analysis-with-python.html
 import nltk
 import pandas as pd
+import re
 from copy import deepcopy
+import pdb
 
+import phrases_lists
 
 class Splitter(object):
     def __init__(self):
@@ -40,7 +43,7 @@ class Tagger(object):
 
         pos = [nltk.pos_tag(sentence) for sentence in sentences]
         #adapt format
-        pos = [[({'orig_string':word}, {'pos_tag':postag},{}) for (word, postag) in sentence] for sentence in pos]
+        pos = [[[{'orig_string':word}, {'pos_tag':postag},{}] for (word, postag) in sentence] for sentence in pos]
         #above format: word_dict, tag_dict,score_dict
         return pos
 
@@ -52,37 +55,54 @@ class DictionaryTagger(object):
         self.max_key_size = 0
         for key in self.dictionary:
             self.max_key_size = max(self.max_key_size,len(nltk.word_tokenize(key)))
-    def tag(self, postagged_sentences_orig,tag_function,new_tag_name,new_score_name,process_on='orig_string'):
+    def tag(self, postagged_sentences_orig,tag_function,new_tag_name,new_score_name,preprocess_function = None, process_on='orig_string'):
         postagged_sentences = deepcopy(postagged_sentences_orig)
-        return [self.tag_sentence(sentence,tag_function,new_tag_name,new_score_name,process_on) for sentence in postagged_sentences]
-    def tag_sentence(self, sentence, tag_function,new_tag_name, new_score_name ,process_on = 'orig_string'):
+        # pdb.set_trace()
+        return [self.tag_sentence(sentence,tag_function,new_tag_name,new_score_name,preprocess_function, process_on) for sentence in postagged_sentences]
+    def tag_sentence(self, sentence, tag_function,new_tag_name, new_score_name ,preprocess_function = None ,process_on = 'orig_string'):
         """
         sentence : the output of the tag function of the form:
             [word_dict, tag_dict,score_dict]
         process_on : to process on what string (default is 'orig_string', which is the original string, if we are processing\
             any other type of string(eg:stemmed word), first add that to the sentence form in the word_dict with a name, then\
-            pass that name to this function
+            pass that name to this function.
+            Eg: If the dict is built after preprocessing like stemming, update the dictionary with the processed word ,
+            and give a new name as key like 'stem_word', and pass that name as process_on argument ('stem_word')
         tag_function: should be a function to which all the arguments available will be passed. So it need to have a \
             **kwargs option. should return a tag name and score (score can return None if no score present)
+        preprocess_function : a function which takes tagged list as input and output processed tagged_dict
+            eg: stopword removal: take list, if word is stopword, remove it from the list
+                stemming : take list, add a new name ('stem_word') and add the stemmed word . return the updated list
+
         the result is only one tagging of all the possible ones.
         The resulting tagging is determined by these two priority rules:
             - longest matches have higher priority
             - search is made from left to right
         """
+        if preprocess_function is not None:
+            # pdb.set_trace()
+            sentence = preprocess_function(sentence)
+        # print(process_on)
+        # print(sentence)
         tag_sentence = []
         N = len(sentence)
         if self.max_key_size == 0:
             self.max_key_size = N
+        word_keys = sentence[0][0].keys()
         i = 0
         while (i < N):
             j = min(i + self.max_key_size, N) #avoid overflow
             tagged = False
             while (j > i):
+                # print(sentence[i:j])
                 literal = ' '.join([word[0][process_on] for word in sentence[i:j]]).lower()
-                literal_orig = ' '.join([word[0]['orig_string'] for word in sentence[i:j]]).lower()
+                # print(literal)
+                # literal_orig = ' '.join([word[0]['orig_string'] for word in sentence[i:j]]).lower()
                 # expression_lemma = ' '.join([word[1] for word in sentence[i:j]]).lower()
                 # literal = expression_form
                 if literal in self.dictionary:
+                    # print('literal',literal)
+                    orig_i,orig_j = i,j
                     is_single_token = j - i == 1
                     original_position = i
                     i = j
@@ -92,10 +112,11 @@ class DictionaryTagger(object):
                     token_dict[new_tag_name] = sent_tag
                     score_dict = sentence[original_position][2] if is_single_token else {}
                     score_dict[new_score_name] = sent_score
-                    word_dict = {'orig_string':literal_orig}
-                    if process_on != 'orig_string':
-                        word_dict[process_on] = literal
-                    new_token = (word_dict,token_dict,score_dict)
+                    #new word will be adding the individual words
+                    word_dict = {}
+                    for key in word_keys:
+                        word_dict[key] = ' '.join([word[0][key] for word in sentence[orig_i:orig_j]])
+                    new_token = [word_dict,token_dict,score_dict]
                     tag_sentence.append(new_token)
                     tagged = True
                     # print('new_token',new_token)
@@ -105,6 +126,16 @@ class DictionaryTagger(object):
                 tag_sentence.append(sentence[i])
                 i += 1
         return tag_sentence
+
+class RegexMatching(object):
+    def __init__(self):
+        self.rejection_regex = phrases_lists.stop_mail_exact_match_regex
+    def match_sent_text_rejection(self,sentences):
+        ''' '''
+        if re.search(self.rejection_regex,sentences):
+            return 1
+        else:
+            return 0
 
 class UtilMethods(object):
     @staticmethod
@@ -157,3 +188,23 @@ class UtilMethods(object):
                     reject = 1
                     break
         return reject
+
+    @staticmethod
+    def prepro_stopword_removal(tag_sent):
+        '''removing stopwords from the parsed list. here orig_string is the key '''
+        # stop = nltk.corpus.stopwords.words('english')
+        from phrases_lists import stopwords
+        stop = stopwords
+        tag_sent_new = []
+        for word in tag_sent:
+            if word[0]['orig_string'].lower() not in stop:
+                tag_sent_new.append(word)
+        return tag_sent_new
+
+    @staticmethod
+    def prepro_stemming(tag_sent):
+        ''' stemming the words from the parsed list'''
+        porter = nltk.stem.porter.PorterStemmer()
+        for word in tag_sent:
+            word[0]['stem_string'] = porter.stem(word[0]['orig_string'])
+        return tag_sent

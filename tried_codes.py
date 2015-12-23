@@ -52,5 +52,5 @@ def try_chunking(responses):
 
 def try_exactmatch(responses):
     for sent in responses:
-        if re.match(stop_mail_exact_match,sent):
+        if re.search(stop_mail_exact_match,sent):
             print(sent)
